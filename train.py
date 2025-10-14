@@ -1,6 +1,7 @@
 import torch
 import matplotlib.pyplot as plt
-from layers import LinearLayer, ReLU, MSELossLayer
+from layers import LinearLayer, ReLU, MSELossLayer, LayeredModel
+from optimizer import Optimizer
 
 def generate_data(num_samples, num_in_features, num_out_features):
 
@@ -46,50 +47,48 @@ print(x.shape, y.shape)
 
 # split into train, val, test sets
 xtrain, ytrain, xval, yval, xtest, ytest = split(x, y, 0.7, 0.15, 0.15)
-#print(xtrain.shape, ytrain.shape, xval.shape, yval.shape, xtest.shape, ytest.shape)
 
 # create model
-l1 = LinearLayer(16, 32)
-l2 = LinearLayer(32, 4)
-r = ReLU()
 loss = MSELossLayer()
+model = LayeredModel([LinearLayer(16, 32), ReLU(), LinearLayer(32, 4), ReLU()])
+
+# create optimizer
+opt = Optimizer(lr = 1e-5, weight_decay=0.01)
 
 # hold losses
 losses = []
 
 # get input data
 for e in range(100):
+
+    x_shuffled = x
+    y_shuffled = y
+    
     for i in range(x.shape[1]):
-        x_in = x[:, i].unsqueeze(-1)
-        y_in = y[:,i].unsqueeze(-1)
-        #print(x_in,y_in)
 
-        # compute outputs
-        h1 = l1.forward(x_in)
-        z1 = r.forward(h1)
-        h2 = l2.forward(z1)
-        z2 = r.forward(h2)
+        # get single x, y example
+        x_in = x_shuffled[:, i].unsqueeze(-1)
+        y_target = y_shuffled[:,i].unsqueeze(-1)
 
-        # compute loss
-        obj = loss.forward(z2, y_in)
+        # compute model prediction
+        y_pred = model.forward(x_in)
 
-        # compute grad loss wrt z2
-        grad_loss_z2 = loss.backward(z2, y_in)
+        # compute loss value and store
+        obj = loss.forward(y_pred, y_target)
 
-        # compute grad loss wrt h2
-        grad_loss_h2 = r.backward(grad_loss_z2, h2)
+        # compute gradient of loss wrt model output
+        grad_loss_wrt_model_output = loss.backward(y_pred, y_target)
 
-        # compute grad loss wrt z1 and update linear layer
-        grad_loss_z1 = l2.backward(z1, grad_loss_h2)
+        # compute gradient of loss wrt model parameters
+        model.backward(grad_loss_wrt_model_output)
 
-        # compute grad loss wrt h1
-        grad_loss_h1 = r.backward(grad_loss_z1, h1)
-
-        # compute grad loss wrt x_in and update linear layer
-        grad_loss_x_in = l1.backward(x_in, grad_loss_h1)
-
+        # optimize model using gradient of loss wrt model output
+        opt.optimize(model)
+    
+    # print loss value
     print(obj)
     losses.append(obj)
 
+# plot training loss history
 plt.plot(losses)
 plt.show()

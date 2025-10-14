@@ -8,20 +8,30 @@ class LinearLayer():
 
     def __init__(self, in_features, out_features, bias=True):
 
-        # initialize parameters of neural network layer
-        self.initialize_parameters(in_features, out_features, bias)
+        # save params
+        self.in_features = in_features
+        self.out_features = out_features
+        self.has_bias = bias
 
-    def initialize_parameters(self, in_features, out_features, bias):
+        # initialize parameters of neural network layer
+        self.initialize_parameters()
+
+        # hold previous values
+        self.last_in = None
+        self.grad_w = None
+        self.grad_b = None
+
+    def initialize_parameters(self):
         """
         Function to initialize parameters
         """
         
         # initialize weights of nn layer
-        self.weight = math.sqrt(2/in_features) * torch.randn((out_features, in_features))
+        self.weight = math.sqrt(2/self.in_features) * torch.randn((self.out_features, self.in_features))
 
         # if bias requested, initialize
-        if bias:
-            self.bias = math.sqrt(2/in_features) * torch.randn((out_features, 1))
+        if self.has_bias:
+            self.bias = math.sqrt(2/self.in_features) * torch.randn((self.out_features, 1))
 
     def forward(self, x):
         """
@@ -29,10 +39,17 @@ class LinearLayer():
         - x is shape (in_features x 1)
         """
 
-        # multiply input by weights matrix, add bias, and return
-        return torch.matmul(self.weight, x) + self.bias
+        # cache input
+        self.last_in = x
+
+        # if bias, multiply input by weights matrix, add bias, and return
+        if self.has_bias:
+            torch.matmul(self.weight, x) + self.bias
+
+        # else multiply input by weights matrix and return
+        return torch.matmul(self.weight, x)
     
-    def backward(self, x, grad_wrt_out):
+    def backward(self, grad_wrt_out, x):
         """
         Function to compute gradient of loss wrt parameters and input given input and grad loss wrt forward output
         - grad_wrt_out is of shape out.shape (out_features x 1)
@@ -44,17 +61,23 @@ class LinearLayer():
         # compute gradient of loss wrt weights matrix given grad loss wrt layer output and input values
         grad_w = torch.matmul(grad_wrt_out, x.T)
 
-        # propagate gradient of loss wrt bias
-        grad_b = grad_wrt_out
+        # cache gradient
+        self.grad_w = grad_w
+
+        # propagate gradient of loss wrt bias and cache
+        if self.has_bias:
+            grad_b = grad_wrt_out
+            self.grad_b = grad_b
         
         # compute gradient of loss wrt layer inputs
         grad_x = torch.matmul(self.weight.T, grad_wrt_out)
 
         # update weights matrix
-        self.weight -= 1e-5 * grad_w
+        #self.weight -= 1e-5 * grad_w
 
-        # update biad
-        self.bias -= 1e-5 * grad_b
+        # update bias
+        #if self.has_bias:
+            #self.bias -= 1e-5 * grad_b
 
         # return grad loss wrt layer inputs
         return grad_x
@@ -62,7 +85,7 @@ class LinearLayer():
 class ReLU():
 
     def __init__(self):
-        pass
+        self.last_in = None
 
     def forward(self, x):
         """
@@ -71,6 +94,7 @@ class ReLU():
         """
 
         # zero out all non-zero entries
+        self.last_in = x
         f = x.clone()
         f[f < 0] = 0
 
@@ -101,3 +125,23 @@ class MSELossLayer():
         Pred is (out_features x 1), target is (out_features x 1)
         """
         return 2*(pred - target)
+
+class LayeredModel():
+
+    def __init__(self, layers):
+        self.layers = layers
+        self.num_layers = len(layers)
+
+    def forward(self, x):
+        activation = x
+        for layer in self.layers:
+            activation = layer.forward(activation)
+        return activation
+    
+    def backward(self, grad_loss_wrt_model_out):
+        last_gradient = grad_loss_wrt_model_out
+        for i in range(self.num_layers):
+            layer = self.layers[self.num_layers - 1 - i]
+            last_gradient = layer.backward(
+                last_gradient, layer.last_in
+            )
