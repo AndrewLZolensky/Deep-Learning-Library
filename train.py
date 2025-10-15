@@ -2,6 +2,7 @@ import torch
 import matplotlib.pyplot as plt
 from layers import LinearLayer, ReLU, MSELossLayer, LayeredModel
 from optimizer import Optimizer
+import math
 
 def generate_data(num_samples, num_in_features, num_out_features):
 
@@ -53,22 +54,33 @@ loss = MSELossLayer()
 model = LayeredModel([LinearLayer(16, 32), ReLU(), LinearLayer(32, 4), ReLU()])
 
 # create optimizer
-opt = Optimizer(lr = 1e-5, weight_decay=0.01)
+opt = Optimizer(lr = 1e-3, weight_decay=0.01)
 
 # hold losses
 losses = []
+val_losses = []
+
+# set training hyper-params
+shuffling = True
+batch_size = 64
 
 # get input data
-for e in range(100):
+for e in range(1000):
 
-    x_shuffled = x
-    y_shuffled = y
+    # shuffle if desired
+    if shuffling:
+        perm = torch.randperm(x.shape[1])
+        x_shuffled = x[:, perm]
+        y_shuffled = y[:, perm]
+    else:
+        x_shuffled = x
+        y_shuffled = y
     
-    for i in range(x.shape[1]):
+    for i in range(math.ceil(x.shape[1] / batch_size)):
 
         # get single x, y example
-        x_in = x_shuffled[:, i].unsqueeze(-1)
-        y_target = y_shuffled[:,i].unsqueeze(-1)
+        x_in = x_shuffled[:, i*batch_size:i*batch_size+batch_size]
+        y_target = y_shuffled[:, i*batch_size:i*batch_size+batch_size]
 
         # compute model prediction
         y_pred = model.forward(x_in)
@@ -89,6 +101,13 @@ for e in range(100):
     print(obj)
     losses.append(obj)
 
+    # perform validation
+    val_preds = model.forward(xval)
+    val_obj = loss.forward(val_preds, yval)
+    val_losses.append(val_obj)
+
+
 # plot training loss history
 plt.plot(losses)
+plt.plot(val_losses)
 plt.show()
