@@ -52,8 +52,8 @@ class LinearLayer():
     def backward(self, grad_wrt_out, x):
         """
         Function to compute gradient of loss wrt parameters and input given input and grad loss wrt forward output
-        - grad_wrt_out is of shape out.shape (out_features x 1)
-        - x is of shape (in_features x 1)
+        - grad_wrt_out is of shape out.shape (out_features x batch_size)
+        - x is of shape (in_features x batch_size)
         - compute gradient of loss wrt parameters and perform parameter update
         - compute gradient of loss wrt input and return
         """
@@ -66,18 +66,11 @@ class LinearLayer():
 
         # propagate gradient of loss wrt bias and cache
         if self.has_bias:
-            grad_b = grad_wrt_out
+            grad_b = torch.sum(grad_wrt_out, dim=1).unsqueeze(-1)
             self.grad_b = grad_b
         
         # compute gradient of loss wrt layer inputs
         grad_x = torch.matmul(self.weight.T, grad_wrt_out)
-
-        # update weights matrix
-        #self.weight -= 1e-5 * grad_w
-
-        # update bias
-        #if self.has_bias:
-            #self.bias -= 1e-5 * grad_b
 
         # return grad loss wrt layer inputs
         return grad_x
@@ -116,7 +109,7 @@ class MSELossLayer():
         Pred is (out_features x 1), target is (out_features x 1)
         """
         diffs = pred - target
-        loss = torch.matmul(diffs.T, diffs)
+        loss = torch.norm(diffs)
         return loss.item()
     
     def backward(self, pred, target):
@@ -145,3 +138,26 @@ class LayeredModel():
             last_gradient = layer.backward(
                 last_gradient, layer.last_in
             )
+
+if __name__ == "__main__":
+
+    # test MSELossLayer
+    batch_size = 1
+    num_out_features = 8
+    targets = torch.randn((num_out_features, batch_size))
+    preds = torch.randn((num_out_features, batch_size))
+    obj = MSELossLayer()
+    loss = obj.forward(preds, targets)
+    grads = obj.backward(preds, targets)
+
+    # test LinearLayer
+    batch_size = 1
+    num_in_features = 8
+    num_out_features = 16
+    linear = LinearLayer(num_in_features, num_out_features)
+    samples = torch.randn(num_in_features, batch_size)
+    preds = linear.forward(samples)
+    grad_loss_wrt_out = torch.randn((preds.shape))
+    grad_loss_wrt_samples = linear.backward(grad_loss_wrt_out, linear.last_in)
+    grad_loss_w = linear.grad_w
+    grad_loss_b = linear.grad_b
