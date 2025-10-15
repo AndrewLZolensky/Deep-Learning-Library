@@ -11,15 +11,17 @@ def generate_data(num_samples, num_in_features, num_out_features):
 
     # create sample neural network
     l1 = LinearLayer(num_in_features, 32)
-    l2 = LinearLayer(32, num_out_features)
+    l2 = LinearLayer(32, 64)
+    l3 = LinearLayer(64, num_out_features)
     r = ReLU()
 
     # do inference
     x1 = r.forward(l1.forward(samples))
     x2 = r.forward(l2.forward(x1))
+    x3 = r.forward(l3.forward(x2))
 
     # return data
-    return samples, x2
+    return samples, x3
 
 def split(x, y, train_p, val_p, test_p):
     """
@@ -51,10 +53,10 @@ xtrain, ytrain, xval, yval, xtest, ytest = split(x, y, 0.7, 0.15, 0.15)
 
 # create model
 loss = MSELossLayer()
-model = LayeredModel([LinearLayer(16, 32), ReLU(), LinearLayer(32, 4), ReLU()])
+model = LayeredModel([LinearLayer(x.shape[0], 32), ReLU(), LinearLayer(32, 64), ReLU(), LinearLayer(64, y.shape[0]), ReLU()])
 
 # create optimizer
-opt = Optimizer(lr = 1e-3, weight_decay=0.01)
+opt = Optimizer(lr = 1e-5, weight_decay=0.01)
 
 # hold losses
 losses = []
@@ -62,7 +64,7 @@ val_losses = []
 
 # set training hyper-params
 shuffling = True
-batch_size = 64
+batch_size = 128
 
 # get input data
 for e in range(1000):
