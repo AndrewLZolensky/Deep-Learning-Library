@@ -1,7 +1,8 @@
 from layers import LinearLayer, LayeredModel
+import torch
 
 class Optimizer():
-    def __init__(self, lr, weight_decay):
+    def __init__(self, lr, weight_decay=0.0):
         self.lr = lr
         self.weight_decay = weight_decay
     def optimize(self, model):
@@ -22,7 +23,7 @@ class Optimizer():
         if isinstance(model, LinearLayer):
 
             # perform gradient update for linear layer
-            model.weight -= self.lr * model.grad_w
+            model.weight -= (self.lr * model.grad_w + self.weight_decay * model.weight)
             if model.has_bias:
                 model.bias -= self.lr * model.grad_b
         

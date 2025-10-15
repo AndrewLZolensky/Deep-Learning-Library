@@ -56,7 +56,7 @@ loss = MSELossLayer()
 model = LayeredModel([LinearLayer(x.shape[0], 32), ReLU(), LinearLayer(32, 64), ReLU(), LinearLayer(64, y.shape[0]), ReLU()])
 
 # create optimizer
-opt = Optimizer(lr = 1e-5, weight_decay=0.01)
+opt = Optimizer(lr = 1e-5, weight_decay=1e-4)
 
 # hold losses
 losses = []
